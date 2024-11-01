@@ -17,6 +17,8 @@ import tensorflow as tf
 #----------------------------------------------------------------------------
 # Convenience.
 
+tf.compat.v1.disable_v2_behavior()
+
 def run(*args, **kwargs): # Run the specified ops in the default session.
     return tf.get_default_session().run(*args, **kwargs)
 
