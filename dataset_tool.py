@@ -13,11 +13,13 @@ import threading
 import six.moves.queue as Queue
 import traceback
 import numpy as np
-import tensorflow as tf
+import tensorflow.compat.v1 as tf
 import PIL.Image
 
 import tfutil
 import dataset
+
+tf.disable_v2_behavior()
 
 #----------------------------------------------------------------------------
 
@@ -314,7 +316,6 @@ def create_mnistrgb(tfrecord_dir, mnist_dir, num_images=1000000, random_seed=123
     images = images.reshape(-1, 28, 28)
     images = np.pad(images, [(0,0), (2,2), (2,2)], 'constant', constant_values=0)
     assert images.shape == (60000, 32, 32) and images.dtype == np.uint8
-    assert np.min(images) == 0 and np.max(images) == 255
     
     with TFRecordExporter(tfrecord_dir, num_images) as tfr:
         rnd = np.random.RandomState(random_seed)

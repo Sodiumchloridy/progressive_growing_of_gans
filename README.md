@@ -64,7 +64,7 @@ The main differences are summarized in the following table:
 
 ## Importing and using pre-trained networks
 
-All pre-trained networks found on Google Drive, as well as ones produced by the training script, are stored as Python PKL files. They can be imported using the standard `pickle` mechanism as long as two conditions are met: (1) The directory containing the Progressive GAN code repository must be included in the PYTHONPATH environment variable, and (2) a `tf.Session()` object must have been created beforehand and set as default. Each PKL file contains 3 instances of `tfutil.Network`:
+All pre-trained networks found on Google Drive, as well as ones produced by the training script, are stored as Python PKL files. They can be imported using the standard `pickle` mechanism as long as two conditions are met: (1) The directory containing the Progressive GAN code repository must be included in the PYTHONPATH environment variable, and (2) a `tf.compat.v1.Session()` object must have been created beforehand and set as default. Each PKL file contains 3 instances of `tfutil.Network`:
 
 ```
 # Import official CelebA-HQ networks.
