@@ -32,6 +32,9 @@ tf_config['graph_options.place_pruned_graph']   = True      # False (default) = 
 #env.CUDA_VISIBLE_DEVICES                       = '0'       # Unspecified (default) = Use all available GPUs. List of ints = CUDA device numbers to use.
 env.TF_CPP_MIN_LOG_LEVEL                        = '1'       # 0 (default) = Print all available debug info from TensorFlow. 1 = Print warnings and errors, but disable debug info.
 
+# Update TensorFlow configurations to be compatible with TensorFlow 2.x
+tf_config['gpu_options.allow_growth'] = True  # Enable dynamic GPU memory allocation
+
 #----------------------------------------------------------------------------
 # Official training configs, targeted mainly for CelebA-HQ.
 # To run, comment/uncomment the lines as appropriate and launch train.py.
