@@ -13,13 +13,11 @@ import threading
 import six.moves.queue as Queue
 import traceback
 import numpy as np
-import tensorflow.compat.v1 as tf
+import tensorflow as tf
 import PIL.Image
 
 import tfutil
 import dataset
-
-tf.disable_v2_behavior()
 
 #----------------------------------------------------------------------------
 
@@ -70,10 +68,10 @@ class TFRecordExporter:
             assert self.shape[0] in [1, 3]
             assert self.shape[1] == self.shape[2]
             assert self.shape[1] == 2**self.resolution_log2
-            tfr_opt = tf.python_io.TFRecordOptions(tf.python_io.TFRecordCompressionType.NONE)
+            tfr_opt = tf.io.TFRecordOptions(tf.compat.v1.python_io.TFRecordCompressionType.NONE)
             for lod in range(self.resolution_log2 - 1):
                 tfr_file = self.tfr_prefix + '-r%02d.tfrecords' % (self.resolution_log2 - lod)
-                self.tfr_writers.append(tf.python_io.TFRecordWriter(tfr_file, tfr_opt))
+                self.tfr_writers.append(tf.io.TFRecordWriter(tfr_file, tfr_opt))
         assert img.shape == self.shape
         for lod, tfr_writer in enumerate(self.tfr_writers):
             if lod:
@@ -316,6 +314,7 @@ def create_mnistrgb(tfrecord_dir, mnist_dir, num_images=1000000, random_seed=123
     images = images.reshape(-1, 28, 28)
     images = np.pad(images, [(0,0), (2,2), (2,2)], 'constant', constant_values=0)
     assert images.shape == (60000, 32, 32) and images.dtype == np.uint8
+    assert np.min(images) == 0 and np.max(images) == 255
     
     with TFRecordExporter(tfrecord_dir, num_images) as tfr:
         rnd = np.random.RandomState(random_seed)

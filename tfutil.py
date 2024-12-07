@@ -27,27 +27,27 @@ def shape_to_list(shape):
     return [dim.value for dim in shape]
 
 def flatten(x):
-    with tf.name_scope('Flatten'):
+    with tf.compat.v1.name_scope('Flatten'):
         return tf.reshape(x, [-1])
 
 def log2(x):
-    with tf.name_scope('Log2'):
+    with tf.compat.v1.name_scope('Log2'):
         return tf.math.log(x) * np.float32(1.0 / np.log(2.0))
 
 def exp2(x):
-    with tf.name_scope('Exp2'):
+    with tf.compat.v1.name_scope('Exp2'):
         return tf.exp(x * np.float32(np.log(2.0)))
 
 def lerp(a, b, t):
-    with tf.name_scope('Lerp'):
+    with tf.compat.v1.name_scope('Lerp'):
         return a + (b - a) * t
 
 def lerp_clip(a, b, t):
-    with tf.name_scope('LerpClip'):
+    with tf.compat.v1.name_scope('LerpClip'):
         return a + (b - a) * tf.clip_by_value(t, 0.0, 1.0)
 
 def absolute_name_scope(scope): # Forcefully enter the specified name scope, ignoring any surrounding scopes.
-    return tf.name_scope(scope + '/')
+    return tf.compat.v1.name_scope(scope + '/')
 
 #----------------------------------------------------------------------------
 # Initialize TensorFlow graph and session using good default settings.
@@ -139,7 +139,7 @@ _autosummary_finalized = False
 def autosummary(name, value):
     id = name.replace('/', '_')
     if is_tf_expression(value):
-        with tf.name_scope('summary_' + id), tf.device(value.device):
+        with tf.compat.v1.name_scope('summary_' + id), tf.device(value.device):
             update_op = _create_autosummary_var(name, value)
             with tf.control_dependencies([update_op]):
                 return tf.identity(value)
@@ -179,13 +179,13 @@ def _create_autosummary_var(name, value_expr):
     if v.shape.ndims is 0:
         v = [v, np.float32(1.0)]
     elif v.shape.ndims is 1:
-        v = [tf.reduce_sum(v), tf.cast(tf.shape(v)[0], tf.float32)]
+        v = [tf.reduce_sum(input_tensor=v), tf.cast(tf.shape(input=v)[0], tf.float32)]
     else:
-        v = [tf.reduce_sum(v), tf.reduce_prod(tf.cast(tf.shape(v), tf.float32))]
-    v = tf.cond(tf.math.is_finite(v[0]), lambda: tf.stack(v), lambda: tf.zeros(2))
+        v = [tf.reduce_sum(input_tensor=v), tf.reduce_prod(input_tensor=tf.cast(tf.shape(input=v), tf.float32))]
+    v = tf.cond(pred=tf.math.is_finite(v[0]), true_fn=lambda: tf.stack(v), false_fn=lambda: tf.zeros(2))
     with tf.control_dependencies(None):
-        var = tf.compat.v1.Variable(tf.zeros(2)) # [numerator, denominator]
-    update_op = tf.cond(tf.compat.v1.is_variable_initialized(var), lambda: tf.compat.v1.assign_add(var, v), lambda: tf.compat.v1.assign(var, v))
+        var = tf.Variable(tf.zeros(2)) # [numerator, denominator]
+    update_op = tf.cond(pred=tf.compat.v1.is_variable_initialized(var), true_fn=lambda: tf.compat.v1.assign_add(var, v), false_fn=lambda: tf.compat.v1.assign(var, v))
     if name in _autosummary_vars:
         _autosummary_vars[name].append(var)
     else:
@@ -247,7 +247,7 @@ class Optimizer:
     def __init__(
         self,
         name                = 'Train',
-        tf_optimizer        = 'tf.compat.v1.train.AdamOptimizer',
+        tf_optimizer        = 'tf.train.AdamOptimizer',
         learning_rate       = 0.001,
         use_loss_scaling    = False,
         loss_scaling_init   = 64.0,
@@ -257,7 +257,7 @@ class Optimizer:
 
         # Init fields.
         self.name               = name
-        self.learning_rate      = tf.convert_to_tensor(learning_rate)
+        self.learning_rate      = tf.convert_to_tensor(value=learning_rate)
         self.id                 = self.name.replace('/', '.')
         self.scope              = tf.compat.v1.get_default_graph().unique_name(self.id)
         self.optimizer_class    = import_obj(tf_optimizer)
@@ -290,7 +290,7 @@ class Optimizer:
         assert all(var.device == dev for var in vars)
 
         # Register device and compute gradients.
-        with tf.name_scope(self.id + '_grad'), tf.device(dev):
+        with tf.compat.v1.name_scope(self.id + '_grad'), tf.device(dev):
             if dev not in self._dev_opt:
                 opt_name = self.scope.replace('/', '_') + '_opt%d' % len(self._dev_opt)
                 self._dev_opt[dev] = self.optimizer_class(name=opt_name, learning_rate=self.learning_rate, **self.optimizer_kwargs)
@@ -313,7 +313,7 @@ class Optimizer:
             # Cast gradients to FP32 and calculate partial sum within each device.
             dev_grads = OrderedDict() # device => [(grad, var), ...]
             for dev_idx, dev in enumerate(devices):
-                with tf.name_scope('ProcessGrads%d' % dev_idx), tf.device(dev):
+                with tf.compat.v1.name_scope('ProcessGrads%d' % dev_idx), tf.device(dev):
                     sums = []
                     for gv in zip(*self._dev_grads[dev]):
                         assert all(v is gv[0][1] for g, v in gv)
@@ -324,7 +324,7 @@ class Optimizer:
 
             # Sum gradients across devices.
             if len(devices) > 1:
-                with tf.name_scope('SumAcrossGPUs'), tf.device(None):
+                with tf.compat.v1.name_scope('SumAcrossGPUs'), tf.device(None):
                     for var_idx, grad_shape in enumerate(self._grad_shapes):
                         g = [dev_grads[dev][var_idx][0] for dev in devices]
                         if np.prod(grad_shape): # nccl does not support zero-sized tensors
@@ -334,35 +334,35 @@ class Optimizer:
 
             # Apply updates separately on each device.
             for dev_idx, (dev, grads) in enumerate(dev_grads.items()):
-                with tf.name_scope('ApplyGrads%d' % dev_idx), tf.device(dev):
+                with tf.compat.v1.name_scope('ApplyGrads%d' % dev_idx), tf.device(dev):
 
                     # Scale gradients as needed.
                     if self.use_loss_scaling or total_grads > 1:
-                        with tf.name_scope('Scale'):
+                        with tf.compat.v1.name_scope('Scale'):
                             coef = tf.constant(np.float32(1.0 / total_grads), name='coef')
                             coef = self.undo_loss_scaling(coef)
                             grads = [(g * coef, v) for g, v in grads]
 
                     # Check for overflows.
-                    with tf.name_scope('CheckOverflow'):
-                        grad_ok = tf.reduce_all(tf.stack([tf.reduce_all(tf.math.is_finite(g)) for g, v in grads]))
+                    with tf.compat.v1.name_scope('CheckOverflow'):
+                        grad_ok = tf.reduce_all(input_tensor=tf.stack([tf.reduce_all(input_tensor=tf.math.is_finite(g)) for g, v in grads]))
 
                     # Update weights and adjust loss scaling.
-                    with tf.name_scope('UpdateWeights'):
+                    with tf.compat.v1.name_scope('UpdateWeights'):
                         opt = self._dev_opt[dev]
                         ls_var = self.get_loss_scaling_var(dev)
                         if not self.use_loss_scaling:
-                            ops.append(tf.cond(grad_ok, lambda: opt.apply_gradients(grads), tf.no_op))
+                            ops.append(tf.cond(pred=grad_ok, true_fn=lambda: opt.apply_gradients(grads), false_fn=tf.no_op))
                         else:
-                            ops.append(tf.cond(grad_ok,
-                                lambda: tf.group(tf.compat.v1.assign_add(ls_var, self.loss_scaling_inc), opt.apply_gradients(grads)),
-                                lambda: tf.group(tf.compat.v1.assign_sub(ls_var, self.loss_scaling_dec))))
+                            ops.append(tf.cond(pred=grad_ok,
+                                true_fn=lambda: tf.group(tf.compat.v1.assign_add(ls_var, self.loss_scaling_inc), opt.apply_gradients(grads)),
+                                false_fn=lambda: tf.group(tf.compat.v1.assign_sub(ls_var, self.loss_scaling_dec))))
 
                     # Report statistics on the last device.
                     if dev == devices[-1]:
-                        with tf.name_scope('Statistics'):
+                        with tf.compat.v1.name_scope('Statistics'):
                             ops.append(autosummary(self.id + '/learning_rate', self.learning_rate))
-                            ops.append(autosummary(self.id + '/overflow_frequency', tf.where(grad_ok, 0, 1)))
+                            ops.append(autosummary(self.id + '/overflow_frequency', tf.compat.v1.where(grad_ok, 0, 1)))
                             if self.use_loss_scaling:
                                 ops.append(autosummary(self.id + '/loss_scaling_log2', ls_var))
 
@@ -381,7 +381,7 @@ class Optimizer:
             return None
         if device not in self._dev_ls_var:
             with absolute_name_scope(self.scope + '/LossScalingVars'), tf.control_dependencies(None):
-                self._dev_ls_var[device] = tf.compat.v1.Variable(np.float32(self.loss_scaling_init), name='loss_scaling_var')
+                self._dev_ls_var[device] = tf.Variable(np.float32(self.loss_scaling_init), name='loss_scaling_var')
         return self._dev_ls_var[device]
 
     # Apply dynamic loss scaling for the given expression.
@@ -608,7 +608,7 @@ class Network:
     def setup_as_moving_average_of(self, src_net, beta=0.99, beta_nontrainable=0.0):
         assert isinstance(src_net, Network)
         with absolute_name_scope(self.scope):
-            with tf.name_scope('MovingAvg'):
+            with tf.compat.v1.name_scope('MovingAvg'):
                 ops = []
                 for name, var in self.vars.items():
                     if name in src_net.vars:
@@ -649,7 +649,7 @@ class Network:
                             out_expr = [x + out_add for x in out_expr]
                         if out_shrink > 1:
                             ksize = [1, 1, out_shrink, out_shrink]
-                            out_expr = [tf.nn.avg_pool(x, ksize=ksize, strides=ksize, padding='VALID', data_format='NCHW') for x in out_expr]
+                            out_expr = [tf.nn.avg_pool2d(input=x, ksize=ksize, strides=ksize, padding='VALID', data_format='NCHW') for x in out_expr]
                         if out_dtype is not None:
                             if tf.as_dtype(out_dtype).is_integer:
                                 out_expr = [tf.round(x) for x in out_expr]
