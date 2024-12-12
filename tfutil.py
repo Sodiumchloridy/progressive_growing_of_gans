@@ -14,6 +14,7 @@ import numpy as np
 from collections import OrderedDict
 import tensorflow as tf
 
+print(tf.__version__)
 tf.compat.v1.disable_v2_behavior()
 tf.compat.v1.disable_eager_execution()
 
