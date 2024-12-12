@@ -14,6 +14,8 @@ import numpy as np
 from collections import OrderedDict
 import tensorflow as tf
 
+tf.compat.v1.disable_v2_behavior()
+
 #----------------------------------------------------------------------------
 # Convenience.
 
